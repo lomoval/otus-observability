@@ -1,0 +1,172 @@
+global:
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  evaluation_interval: 15s
+  external_labels:
+    site: prod
+alerting:
+  alertmanagers:
+  - follow_redirects: true
+    enable_http2: true
+    scheme: http
+    timeout: 10s
+    api_version: v2
+    static_configs:
+    - targets: []
+scrape_configs:
+- job_name: victoria
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics
+  scheme: http
+  enable_compression: true
+  follow_redirects: true
+  enable_http2: true
+  static_configs:
+  - targets:
+    - 127.0.0.1:8428
+- job_name: prometheus
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics
+  scheme: http
+  enable_compression: true
+  follow_redirects: true
+  enable_http2: true
+  static_configs:
+  - targets:
+    - localhost:9090
+- job_name: db
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics/db/
+  scheme: http
+  enable_compression: true
+  basic_auth:
+    username: prom
+    password: <secret>
+  follow_redirects: true
+  enable_http2: true
+  static_configs:
+  - targets:
+    - 192.168.0.125:82
+- job_name: node
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics/node/
+  scheme: http
+  enable_compression: true
+  basic_auth:
+    username: prom
+    password: <secret>
+  follow_redirects: true
+  enable_http2: true
+  static_configs:
+  - targets:
+    - 192.168.0.125:82
+- job_name: blackbox
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  params:
+    module:
+    - http_2xx
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics/blackbox/probe
+  scheme: http
+  enable_compression: true
+  basic_auth:
+    username: prom
+    password: <secret>
+  follow_redirects: true
+  enable_http2: true
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: $1
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: $1
+    action: replace
+  - separator: ;
+    regex: (.*)
+    target_label: __address__
+    replacement: 192.168.0.125:82
+    action: replace
+  static_configs:
+  - targets:
+    - http://192.168.0.125:81
+- job_name: blackbox_exporter
+  honor_timestamps: true
+  track_timestamps_staleness: false
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusText0.0.4
+  metrics_path: /metrics/blackbox/metrics
+  scheme: http
+  enable_compression: true
+  basic_auth:
+    username: prom
+    password: <secret>
+  follow_redirects: true
+  enable_http2: true
+  static_configs:
+  - targets:
+    - 192.168.0.125:82
+remote_write:
+- url: http://127.0.0.1:8428/api/v1/write
+  remote_timeout: 30s
+  follow_redirects: true
+  enable_http2: true
+  queue_config:
+    capacity: 20000
+    max_shards: 30
+    min_shards: 1
+    max_samples_per_send: 10000
+    batch_send_deadline: 5s
+    min_backoff: 30ms
+    max_backoff: 5s
+  metadata_config:
+    send: true
+    send_interval: 1m
+    max_samples_per_send: 2000
