@@ -1,0 +1,21 @@
+groups:
+- name: joomla
+  rules:
+  - alert: JoomlaInstanceDown
+    expr: probe_success == 0
+    for: 15s
+    annotations:
+      title: 'Joomla instance {{ $labels.instance }} down'
+      description: 'Joomla {{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute.'
+    labels:
+      severity: 'critical'
+- name: env
+  rules:
+  - alert: LowMemory
+    expr: (100 - ((avg_over_time(node_memory_MemAvailable_bytes[5m]) * 100) / avg_over_time(node_memory_MemTotal_bytes[5m]))) > 60
+    for: 15s
+    annotations:
+      title: 'Low memory {{ $labels.instance }}'
+    labels:
+      severity: 'warning'
+

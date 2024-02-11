@@ -1,0 +1,85 @@
+# my global config
+global:
+  scrape_interval: 5s # Set the scrape interval to every 5 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+  external_labels:
+    site: prod
+
+remote_write:
+  - url: http://127.0.0.1:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+      max_shards: 30
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+           - localhost:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'victoria'
+    static_configs:
+      - targets:
+          - 127.0.0.1:8428
+  - job_name: "prometheus"
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "db"
+    metrics_path: /metrics/db/
+    basic_auth:
+      username: prom
+      password: prom
+    static_configs:
+      - targets: ["192.168.0.125:82"]
+
+  - job_name: "node"
+    metrics_path: /metrics/node/
+    basic_auth:
+      username: prom
+      password: prom
+    static_configs:
+      - targets: ["192.168.0.125:82"]
+
+  - job_name: 'blackbox'
+    metrics_path: /metrics/blackbox/probe
+    basic_auth:
+      username: prom
+      password: prom
+    params:
+      module: [http_2xx] 
+    static_configs:
+      - targets:
+        - http://192.168.0.125:81
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.0.125:82
+
+  - job_name: 'blackbox_exporter'  # collect blackbox exporter's operational metrics.
+    metrics_path: /metrics/blackbox/metrics
+    basic_auth:
+      username: prom
+      password: prom
+
+    static_configs:
+      - targets: ['192.168.0.125:82']
