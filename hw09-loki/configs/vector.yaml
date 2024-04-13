@@ -1,0 +1,63 @@
+#                                    __   __  __
+#                                    \ \ / / / /
+#                                     \ V / / /
+#                                      \_/  \/
+#
+#                                    V E C T O R
+#                                   Configuration
+#
+# ------------------------------------------------------------------------------
+# Website: https://vector.dev
+# Docs: https://vector.dev/docs
+# Chat: https://chat.vector.dev
+# ------------------------------------------------------------------------------
+
+# Change this to use a non-default directory for Vector data storage:
+# data_dir: "/var/lib/vector"
+
+sources:
+  sshd_http_source:
+    type: "socket"
+    address: "127.0.0.1:10514"
+    mode: "udp"
+    decoding:
+      codec: "json"
+  sshd_log_source:
+    type: "file"
+    read_from: "beginning"
+    include:
+      - "/var/log/sshd.log"
+
+
+transforms:
+  sshd_http_transform:
+    type: "remap"
+    inputs: ["sshd_http_source"]
+    source: '.programname=upcase!(.programname) + "-from-vector-http"'
+  sshd_log_transform:
+    type: "remap"
+    inputs: ["sshd_log_source"]
+    source: |
+     . |= parse_syslog!(.message)
+     .@timestamp = .timestamp
+     .programname = "SSHD-from-vector-log-file"
+
+sinks:
+  print:
+    type: "console"
+    inputs: ["sshd_http_transform", "sshd_log_transform"]
+    encoding:
+      codec: "json"
+  loki:
+    type: "loki"
+    inputs: ["sshd_*_transform"]
+    endpoint: http://localhost:3100
+    encoding:
+      codec: json
+    labels:
+      source: vector
+      programname: "{{ programname }}"
+      severity: "{{ severity }}"
+    out_of_order_action: drop
+    path: /loki/api/v1/push
+
